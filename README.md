@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LoveLock Puzzle
+
+Seasonal, emotionally engaging web app where couples upload a photo, it becomes a shuffled puzzle behind a paywall, and the partner solves it to reveal the image + a love message. Nigeria-focused MVP.
+
+## Tech Stack
+
+- Next.js 16 (App Router, TypeScript)
+- Tailwind CSS v4 + Framer Motion
+- Drag & Drop: @dnd-kit/core + @dnd-kit/sortable
+- Puzzle rendering: HTML5 Canvas (client-side slicing only)
+- Database & Storage: Supabase
+- Payments: Paystack (amounts in kobo)
+- Email: Resend
+- Image compression: Sharp
+
+## Core Flow
+
+1. Sender uploads a couple photo and customizes the puzzle.
+2. Image is compressed and stored in Supabase Storage.
+3. Puzzle record is created with a shuffled tile order.
+4. Sender pays via Paystack.
+5. Receiver opens the puzzle, solves it, and reveals the image + message.
+6. 24-hour expiration starts on first open.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env.local` using `.env.example` as a template:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
 
-## Learn More
+PAYSTACK_SECRET_KEY
+NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
 
-To learn more about Next.js, take a look at the following resources:
+NEXT_PUBLIC_APP_URL
+RESEND_API_KEY
+CRON_SECRET
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database Setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run `supabase-setup.sql` in your Supabase SQL editor. It creates:
 
-## Deploy on Vercel
+- `puzzles` table
+- `magic_links` table
+- `payments` table (for tracking Paystack references)
+- RLS policies and indexes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Also create a storage bucket named `puzzle-images` with:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Public access
+- 5MB file size limit
+- Allowed types: JPEG, PNG, WebP
+
+## Scripts
+
+- `npm run dev` — Start dev server
+- `npm run build` — Build for production
+- `npm run start` — Start production server
+- `npm run lint` — Lint the codebase
+- `npm run test` — Run tests
+
+## QA Checklist (Critical Path)
+
+1. Create flow
+   - Upload image (<= 5MB, JPEG/PNG/WebP)
+   - Choose difficulty
+   - Add message + sender name
+   - Optional reveal date
+   - Paystack redirect works
+
+2. Payment verification
+   - Webhook activates puzzle (primary)
+   - Callback activates puzzle if webhook fails (fallback)
+   - Idempotent updates (no double activation)
+
+3. Puzzle solving
+   - Puzzle opens only when `active`
+   - Reveal date gate works
+   - First open starts 24-hour timer
+   - Tile swapping works and completion is detected
+   - Completion modal shows image + message
+   - Confetti triggers
+
+4. Expiration
+   - Puzzle expires after 24h from first open
+   - `expire-puzzles` cron marks opened + expired
+
+5. Dashboard
+   - Magic link email sent
+   - Auth cookie set
+   - Puzzles list displays
+
+## Notes
+
+- No user accounts; email-based magic links only.
+- Tile images are never stored server-side; only the full image is stored.
+- Prices are hard-coded and stored in kobo.
+
+## Deployment (Vercel + Supabase)
+
+1. Create a Supabase project and run `supabase-setup.sql`.
+2. Create storage bucket `puzzle-images` with the limits described above.
+3. Configure environment variables in Vercel (see Env Vars section).
+4. Set Paystack webhook URL to `https://<your-domain>/api/payment/verify`.
+5. Set cron to call `https://<your-domain>/api/cron/expire-puzzles` with `Authorization: Bearer <CRON_SECRET>`.
