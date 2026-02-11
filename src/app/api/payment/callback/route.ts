@@ -5,7 +5,7 @@ import { sendPuzzleCreated } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   const reference = request.nextUrl.searchParams.get("reference");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
   if (!reference) {
     return NextResponse.redirect(`${appUrl}/create?error=no_reference`);

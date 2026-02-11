@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const reference = `ll_${nanoid(16)}`;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
     // Store reference on puzzle
     const { error: updateError } = await supabase
