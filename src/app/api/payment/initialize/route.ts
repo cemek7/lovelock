@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       access_code: result.data.access_code,
       reference: result.data.reference,
       puzzle_token: puzzle.token,
+      paystack_key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     });
   } catch (error) {
     console.error("Payment init error:", error);

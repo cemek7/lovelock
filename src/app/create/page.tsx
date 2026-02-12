@@ -109,12 +109,13 @@ function CreateContent() {
         const data = await payRes.json();
         throw new Error(data.error || "Payment initialization failed");
       }
-      const { access_code, reference, puzzle_token, authorization_url } = await payRes.json();
+      const { access_code, reference, puzzle_token, authorization_url, paystack_key } = await payRes.json();
 
       // 4. Open Paystack — try popup first, fallback to redirect
-      if (paystackReady.current && window.PaystackPop) {
+      if (paystackReady.current && window.PaystackPop && paystack_key) {
         const handler = window.PaystackPop.setup({
-          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+          key: paystack_key,
+          email: senderEmail,
           access_code,
           onClose: () => {
             setLoading(false);
@@ -126,7 +127,7 @@ function CreateContent() {
         });
         handler.openIframe();
       } else {
-        // Fallback: redirect to Paystack (will use dashboard callback URL)
+        // Fallback: redirect to Paystack
         window.location.href = authorization_url;
       }
     } catch (err) {
