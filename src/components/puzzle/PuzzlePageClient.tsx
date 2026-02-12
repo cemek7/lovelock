@@ -142,7 +142,7 @@ export default function PuzzlePageClient({
   }
 
   return (
-    <main className="min-h-screen px-6 py-6">
+    <main className="min-h-screen px-6 py-6" style={{ overscrollBehavior: "none" }}>
       <nav className="mx-auto mb-6 flex w-full max-w-5xl items-center justify-between">
         <Link
           href="/"

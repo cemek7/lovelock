@@ -51,7 +51,10 @@ export default function PuzzleBoard({
       <SortableContext items={positions} strategy={rectSwappingStrategy}>
         <div
           className="grid gap-2"
-          style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}
+          style={{
+            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+            touchAction: "none",
+          }}
         >
           {positions.map((pos) => (
             <PuzzleTile
