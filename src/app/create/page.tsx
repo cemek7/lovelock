@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import ImageUploader from "@/components/create/ImageUploader";
@@ -12,6 +13,8 @@ import { Difficulty, DIFFICULTY_CONFIG } from "@/types";
 import { formatNaira } from "@/lib/utils";
 
 export default function CreatePage() {
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
   const [step, setStep] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -112,6 +115,12 @@ export default function CreatePage() {
             transition={{ duration: 0.3 }}
           />
         </div>
+
+        {errorParam && (
+          <div className="mb-6 rounded-xl border border-love-500/20 bg-love-500/5 px-4 py-3 text-sm text-love-300/80">
+            Payment error: {errorParam.replace(/_/g, " ")}
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {step === 1 && (

@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase-server";
 import { verifyTransaction } from "@/lib/paystack";
 
 export async function GET(request: NextRequest) {
-  const reference = request.nextUrl.searchParams.get("reference");
+  const reference = request.nextUrl.searchParams.get("reference") || request.nextUrl.searchParams.get("trxref");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
   if (!reference) {
@@ -13,64 +13,54 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
 
-    // First check if webhook already activated this puzzle
-    const { data: existing } = await supabase
-      .from("puzzles")
-      .select("token, sender_email, reveal_at, status")
-      .eq("payment_reference", reference)
-      .single();
-
-    if (existing?.token && existing.status !== "pending_payment") {
-      // Already activated by webhook — just redirect to success
-      return NextResponse.redirect(`${appUrl}/create/success?token=${existing.token}`);
-    }
-
-    // Webhook hasn't fired yet — verify with Paystack ourselves
+    // Always verify with Paystack to get the transaction details + metadata
     const verification = await verifyTransaction(reference);
+    const paystackData = verification.data;
 
-    if (verification.data.status !== "success") {
+    if (paystackData.status !== "success") {
       return NextResponse.redirect(`${appUrl}/create?error=payment_failed`);
     }
 
+    // Get token from Paystack metadata (most reliable source)
+    const metadataToken = paystackData.metadata?.puzzle_token as string | undefined;
+
+    // Try to activate the puzzle (idempotent — only updates if still pending)
     const now = new Date().toISOString();
 
-    // Record payment
-    if (existing) {
-      const { data: puzzleRow } = await supabase
-        .from("puzzles")
-        .select("id")
-        .eq("payment_reference", reference)
-        .single();
+    await supabase
+      .from("puzzles")
+      .update({ status: "active", paid_at: now })
+      .eq("payment_reference", reference)
+      .eq("status", "pending_payment");
 
-      if (puzzleRow?.id) {
-        await supabase
-          .from("payments")
-          .upsert(
-            {
-              puzzle_id: puzzleRow.id,
-              reference,
-              amount: verification.data.amount,
-              status: "success",
-              verified_at: now,
-            },
-            { onConflict: "reference" }
-          );
-      }
+    // Record payment
+    const puzzleId = paystackData.metadata?.puzzle_id as string | undefined;
+    if (puzzleId) {
+      await supabase
+        .from("payments")
+        .upsert(
+          {
+            puzzle_id: puzzleId,
+            reference,
+            amount: paystackData.amount,
+            status: "success",
+            verified_at: now,
+          },
+          { onConflict: "reference" }
+        );
     }
 
-    // Activate puzzle
-    const { data: puzzle } = await supabase
-      .from("puzzles")
-      .update({
-        status: "active",
-        paid_at: now,
-      })
-      .eq("payment_reference", reference)
-      .eq("status", "pending_payment")
-      .select("token")
-      .single();
+    // Get the token — try metadata first, then DB
+    let token = metadataToken;
 
-    const token = puzzle?.token || existing?.token;
+    if (!token) {
+      const { data: puzzle } = await supabase
+        .from("puzzles")
+        .select("token")
+        .eq("payment_reference", reference)
+        .single();
+      token = puzzle?.token;
+    }
 
     if (!token) {
       return NextResponse.redirect(`${appUrl}/create?error=puzzle_not_found`);
