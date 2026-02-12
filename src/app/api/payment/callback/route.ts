@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
 
     // Always verify with Paystack to get the transaction details + metadata
     const verification = await verifyTransaction(reference);
-    const paystackData = verification.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const paystackData = verification.data as any;
 
     if (paystackData.status !== "success") {
       return NextResponse.redirect(`${appUrl}/create?error=payment_failed`);
