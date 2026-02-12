@@ -109,13 +109,16 @@ function CreateContent() {
         const data = await payRes.json();
         throw new Error(data.error || "Payment initialization failed");
       }
-      const { access_code, reference, puzzle_token, authorization_url, paystack_key } = await payRes.json();
+      const { reference, puzzle_token, authorization_url, paystack_key } = await payRes.json();
+      const amount = DIFFICULTY_CONFIG[difficulty].priceKobo;
 
       // 4. Open Paystack — try popup first, fallback to redirect
       if (paystackReady.current && window.PaystackPop && paystack_key) {
         const handler = window.PaystackPop.setup({
           key: paystack_key,
-          access_code,
+          email: senderEmail.trim(),
+          amount,
+          ref: reference,
           onClose: () => {
             setLoading(false);
           },
