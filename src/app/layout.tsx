@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   other: {
-    "theme-color": "#0f0a1e",
+    "theme-color": "#121010",
   },
 };
 
@@ -31,7 +31,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover" as const,
-  themeColor: "#0f0a1e",
+  themeColor: "#121010",
 };
 
 export default function RootLayout({
@@ -40,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-[#0f0a1e]">
+    <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} antialiased`} style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         {children}
       </body>
