@@ -24,6 +24,7 @@ interface PaystackVerifyResponse {
     customer: {
       email: string;
     };
+    metadata?: Record<string, unknown>;
   };
 }
 
