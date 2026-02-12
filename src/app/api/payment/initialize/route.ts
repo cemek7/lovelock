@@ -52,12 +52,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to initialize payment" }, { status: 500 });
     }
 
-    // Initialize Paystack transaction
+    // Initialize Paystack transaction (no callback_url — popup handles redirect)
     const result = await initializeTransaction({
       email,
       amount: puzzle.payment_amount,
       reference,
-      callback_url: `${appUrl}/create/success`,
       metadata: {
         puzzle_id: puzzle.id,
         puzzle_token: puzzle.token,
@@ -68,6 +67,7 @@ export async function POST(request: NextRequest) {
       authorization_url: result.data.authorization_url,
       access_code: result.data.access_code,
       reference: result.data.reference,
+      puzzle_token: puzzle.token,
     });
   } catch (error) {
     console.error("Payment init error:", error);

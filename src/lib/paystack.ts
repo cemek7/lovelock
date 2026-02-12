@@ -32,7 +32,7 @@ export async function initializeTransaction(params: {
   email: string;
   amount: number;
   reference: string;
-  callback_url: string;
+  callback_url?: string;
   metadata?: Record<string, unknown>;
 }): Promise<PaystackInitResponse> {
   const res = await fetch("https://api.paystack.co/transaction/initialize", {

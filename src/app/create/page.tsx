@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import ImageUploader from "@/components/create/ImageUploader";
@@ -20,9 +20,8 @@ declare global {
   }
 }
 
-export default function CreatePage() {
+function CreateContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const errorParam = searchParams.get("error");
   const [step, setStep] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -35,47 +34,25 @@ export default function CreatePage() {
   const [revealDate, setRevealDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paystackReady, setPaystackReady] = useState(false);
+  const paystackReady = useRef(false);
 
   // Load Paystack Inline script
   useEffect(() => {
-    if (document.getElementById("paystack-script")) {
-      setPaystackReady(true);
+    if (window.PaystackPop) {
+      paystackReady.current = true;
       return;
     }
+    if (document.getElementById("paystack-script")) return;
+
     const script = document.createElement("script");
     script.id = "paystack-script";
     script.src = "https://js.paystack.co/v1/inline.js";
     script.async = true;
-    script.onload = () => setPaystackReady(true);
+    script.onload = () => {
+      paystackReady.current = true;
+    };
     document.head.appendChild(script);
   }, []);
-
-  const openPaystackPopup = useCallback(
-    (accessCode: string, reference: string) => {
-      if (!window.PaystackPop) {
-        // Fallback: redirect if popup not available
-        setError("Payment popup failed to load. Please try again.");
-        setLoading(false);
-        return;
-      }
-
-      const handler = window.PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-        access_code: accessCode,
-        ref: reference,
-        onClose: () => {
-          setLoading(false);
-        },
-        callback: (response: { reference: string }) => {
-          router.push(`/create/success?reference=${response.reference}`);
-        },
-      });
-
-      handler.openIframe();
-    },
-    [router]
-  );
 
   const handleImageSelected = (file: File, preview: string) => {
     setImageFile(file);
@@ -88,15 +65,11 @@ export default function CreatePage() {
       return;
     }
 
-    if (!paystackReady) {
-      setError("Payment is loading, please try again in a moment.");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
+      // 1. Upload image
       const formData = new FormData();
       formData.append("image", imageFile);
 
@@ -107,6 +80,7 @@ export default function CreatePage() {
       }
       const { image_path } = await uploadRes.json();
 
+      // 2. Create puzzle
       const createRes = await fetch("/api/puzzles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,6 +99,7 @@ export default function CreatePage() {
       }
       const { puzzle_id } = await createRes.json();
 
+      // 3. Initialize payment
       const payRes = await fetch("/api/payment/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,9 +109,26 @@ export default function CreatePage() {
         const data = await payRes.json();
         throw new Error(data.error || "Payment initialization failed");
       }
-      const { access_code, reference } = await payRes.json();
+      const { access_code, reference, puzzle_token, authorization_url } = await payRes.json();
 
-      openPaystackPopup(access_code, reference);
+      // 4. Open Paystack — try popup first, fallback to redirect
+      if (paystackReady.current && window.PaystackPop) {
+        const handler = window.PaystackPop.setup({
+          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+          access_code,
+          onClose: () => {
+            setLoading(false);
+          },
+          callback: () => {
+            // Payment successful — go to success page with token directly
+            window.location.href = `/create/success?token=${puzzle_token}&reference=${reference}`;
+          },
+        });
+        handler.openIframe();
+      } else {
+        // Fallback: redirect to Paystack (will use dashboard callback URL)
+        window.location.href = authorization_url;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -358,5 +350,13 @@ export default function CreatePage() {
         </AnimatePresence>
       </div>
     </main>
+  );
+}
+
+export default function CreatePage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-white/30">Loading...</div>}>
+      <CreateContent />
+    </Suspense>
   );
 }

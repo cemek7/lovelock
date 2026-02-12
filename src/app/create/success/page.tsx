@@ -12,26 +12,25 @@ function SuccessContent() {
   const reference = searchParams.get("reference") || searchParams.get("trxref");
 
   const [token, setToken] = useState<string | null>(tokenParam);
-  const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // If we have a reference, verify payment in background to activate the puzzle
   useEffect(() => {
-    if (token || !reference) return;
+    if (!reference) return;
 
-    setVerifying(true);
+    // Fire-and-forget: activate the puzzle via our callback endpoint
     fetch(`/api/payment/callback?reference=${encodeURIComponent(reference)}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data.token) {
+        // If we didn't have a token yet, use the one from verification
+        if (!tokenParam && data.token) {
           setToken(data.token);
-        } else {
-          setError(data.error || "Could not verify payment");
         }
       })
-      .catch(() => setError("Verification failed. Please check your email for the puzzle link."))
-      .finally(() => setVerifying(false));
-  }, [reference, token]);
+      .catch(() => {
+        // Webhook will handle activation as backup
+      });
+  }, [reference, tokenParam]);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
   const puzzleUrl = token ? `${appUrl}/puzzle/${token}` : "";
@@ -42,33 +41,11 @@ function SuccessContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (verifying) {
+  if (!token) {
     return (
       <div className="text-center">
         <div className="mb-4 inline-block h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
         <p className="text-sm text-white/40">Confirming your payment...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center">
-        <p className="mb-2 text-white/60">{error}</p>
-        <Link href="/create" className="text-sm text-white/40 hover:text-white/70">
-          Try again
-        </Link>
-      </div>
-    );
-  }
-
-  if (!token) {
-    return (
-      <div className="text-center">
-        <p className="text-white/50">No puzzle token found.</p>
-        <Link href="/create" className="mt-4 inline-block text-sm text-white/40 hover:text-white/70">
-          Try again
-        </Link>
       </div>
     );
   }
