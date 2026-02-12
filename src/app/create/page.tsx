@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import ImageUploader from "@/components/create/ImageUploader";
@@ -12,8 +12,17 @@ import Button from "@/components/ui/Button";
 import { Difficulty, DIFFICULTY_CONFIG } from "@/types";
 import { formatNaira } from "@/lib/utils";
 
+declare global {
+  interface Window {
+    PaystackPop?: {
+      setup: (options: Record<string, unknown>) => { openIframe: () => void };
+    };
+  }
+}
+
 export default function CreatePage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const errorParam = searchParams.get("error");
   const [step, setStep] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -26,6 +35,47 @@ export default function CreatePage() {
   const [revealDate, setRevealDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paystackReady, setPaystackReady] = useState(false);
+
+  // Load Paystack Inline script
+  useEffect(() => {
+    if (document.getElementById("paystack-script")) {
+      setPaystackReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "paystack-script";
+    script.src = "https://js.paystack.co/v1/inline.js";
+    script.async = true;
+    script.onload = () => setPaystackReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  const openPaystackPopup = useCallback(
+    (accessCode: string, reference: string) => {
+      if (!window.PaystackPop) {
+        // Fallback: redirect if popup not available
+        setError("Payment popup failed to load. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      const handler = window.PaystackPop.setup({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+        access_code: accessCode,
+        ref: reference,
+        onClose: () => {
+          setLoading(false);
+        },
+        callback: (response: { reference: string }) => {
+          router.push(`/create/success?reference=${response.reference}`);
+        },
+      });
+
+      handler.openIframe();
+    },
+    [router]
+  );
 
   const handleImageSelected = (file: File, preview: string) => {
     setImageFile(file);
@@ -35,6 +85,11 @@ export default function CreatePage() {
   const handleSubmit = async () => {
     if (!imageFile || !senderName.trim() || !senderEmail.trim()) {
       setError("Please fill in all required fields");
+      return;
+    }
+
+    if (!paystackReady) {
+      setError("Payment is loading, please try again in a moment.");
       return;
     }
 
@@ -79,9 +134,9 @@ export default function CreatePage() {
         const data = await payRes.json();
         throw new Error(data.error || "Payment initialization failed");
       }
-      const { authorization_url } = await payRes.json();
+      const { access_code, reference } = await payRes.json();
 
-      window.location.href = authorization_url;
+      openPaystackPopup(access_code, reference);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);

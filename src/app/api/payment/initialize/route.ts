@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       authorization_url: result.data.authorization_url,
+      access_code: result.data.access_code,
       reference: result.data.reference,
     });
   } catch (error) {
