@@ -257,7 +257,9 @@ export default function CreatePage() {
                   Your email
                 </label>
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
                   value={senderEmail}
                   onChange={(e) => setSenderEmail(e.target.value)}
                   placeholder="you@example.com"
