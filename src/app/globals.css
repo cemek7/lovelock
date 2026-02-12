@@ -38,11 +38,22 @@
   --font-body: "Inter", sans-serif;
 }
 
+html {
+  background: #0f0a1e;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-body);
   background: linear-gradient(135deg, #1a0a1e 0%, #2d1233 25%, #1a0a2e 50%, #0f0a1e 100%);
   color: #f5f5f5;
-  min-height: 100dvh;
 }
 
 /* Use dvh for min-h-screen on mobile */
