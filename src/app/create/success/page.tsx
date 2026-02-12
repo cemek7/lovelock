@@ -1,24 +1,66 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const tokenParam = searchParams.get("token");
+  const reference = searchParams.get("reference") || searchParams.get("trxref");
+
+  const [token, setToken] = useState<string | null>(tokenParam);
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    if (token || !reference) return;
+
+    setVerifying(true);
+    fetch(`/api/payment/callback?reference=${encodeURIComponent(reference)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.token) {
+          setToken(data.token);
+        } else {
+          setError(data.error || "Could not verify payment");
+        }
+      })
+      .catch(() => setError("Verification failed. Please check your email for the puzzle link."))
+      .finally(() => setVerifying(false));
+  }, [reference, token]);
+
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const puzzleUrl = `${appUrl}/puzzle/${token}`;
+  const puzzleUrl = token ? `${appUrl}/puzzle/${token}` : "";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(puzzleUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (verifying) {
+    return (
+      <div className="text-center">
+        <div className="mb-4 inline-block h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
+        <p className="text-sm text-white/40">Confirming your payment...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center">
+        <p className="mb-2 text-white/60">{error}</p>
+        <Link href="/create" className="text-sm text-white/40 hover:text-white/70">
+          Try again
+        </Link>
+      </div>
+    );
+  }
 
   if (!token) {
     return (
@@ -67,7 +109,7 @@ function SuccessContent() {
       </div>
 
       <p className="mb-10 text-xs text-white/20">
-        We&apos;ve also sent this link to your email.
+        Send this link to your partner to start the puzzle.
       </p>
 
       <div className="flex items-center justify-center gap-6">

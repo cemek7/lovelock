@@ -4,28 +4,27 @@ import { verifyTransaction } from "@/lib/paystack";
 
 export async function GET(request: NextRequest) {
   const reference = request.nextUrl.searchParams.get("reference") || request.nextUrl.searchParams.get("trxref");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
 
   if (!reference) {
-    return NextResponse.redirect(`${appUrl}/create?error=no_reference`);
+    return NextResponse.json({ error: "No reference provided" }, { status: 400 });
   }
 
   try {
     const supabase = createServerClient();
 
-    // Always verify with Paystack to get the transaction details + metadata
+    // Verify with Paystack
     const verification = await verifyTransaction(reference);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const paystackData = verification.data as any;
 
     if (paystackData.status !== "success") {
-      return NextResponse.redirect(`${appUrl}/create?error=payment_failed`);
+      return NextResponse.json({ error: "Payment not successful" }, { status: 400 });
     }
 
-    // Get token from Paystack metadata (most reliable source)
+    // Get token from Paystack metadata
     const metadataToken = paystackData.metadata?.puzzle_token as string | undefined;
 
-    // Try to activate the puzzle (idempotent — only updates if still pending)
+    // Activate the puzzle (idempotent)
     const now = new Date().toISOString();
 
     await supabase
@@ -64,12 +63,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (!token) {
-      return NextResponse.redirect(`${appUrl}/create?error=puzzle_not_found`);
+      return NextResponse.json({ error: "Puzzle not found" }, { status: 404 });
     }
 
-    return NextResponse.redirect(`${appUrl}/create/success?token=${token}`);
+    return NextResponse.json({ token });
   } catch (error) {
     console.error("Payment callback error:", error);
-    return NextResponse.redirect(`${appUrl}/create?error=verification_failed`);
+    return NextResponse.json({ error: "Verification failed" }, { status: 500 });
   }
 }

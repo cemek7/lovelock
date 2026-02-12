@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       email,
       amount: puzzle.payment_amount,
       reference,
-      callback_url: `${appUrl}/api/payment/callback`,
+      callback_url: `${appUrl}/create/success`,
       metadata: {
         puzzle_id: puzzle.id,
         puzzle_token: puzzle.token,
