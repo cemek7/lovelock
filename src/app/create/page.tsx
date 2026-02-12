@@ -115,13 +115,11 @@ function CreateContent() {
       if (paystackReady.current && window.PaystackPop && paystack_key) {
         const handler = window.PaystackPop.setup({
           key: paystack_key,
-          email: senderEmail,
           access_code,
           onClose: () => {
             setLoading(false);
           },
           callback: () => {
-            // Payment successful — go to success page with token directly
             window.location.href = `/create/success?token=${puzzle_token}&reference=${reference}`;
           },
         });
